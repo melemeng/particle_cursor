@@ -3,25 +3,47 @@ pipeline {
 
     environment {
         DO_CREDENTIALS = credentials('digitalocean-ssh')
+        REMOTE_USER = 'chris'
+        REMOTE_HOST = '164.92.227.136'
+        PROJECT_DIR = '/var/www/portfolio'
     }
 
     stages {
         stage('Setup SSH') {
             steps {
                 script {
-                    // Add the remote server to the known hosts
-                    sh "ssh-keyscan -H 164.92.227.136 >> ~/.ssh/known_hosts"
+                    sh "ssh-keyscan -H $REMOTE_HOST >> ~/.ssh/known_hosts"
                 }
             }
         }
 
-        stage('Connect to DigitalOcean') {
+        stage('Connect to Server') {
             steps {
                 script {
-                    // Use the SSH agent to connect and verify
+                    sshagent (credentials: ['digitalocean-ssh']) {
+                        sh "ssh $REMOTE_USER@$REMOTE_HOST 'echo Connected ✔️'"
+                    }
+                }
+            }
+        }
+
+        stage('Auto Commit Local Changes') {
+            steps {
+                script {
                     sshagent (credentials: ['digitalocean-ssh']) {
                         sh """
-                            ssh chris@164.92.227.136 'echo "Successfully connected to DigitalOcean!"'
+                            ssh $REMOTE_USER@$REMOTE_HOST '
+                                cd $PROJECT_DIR && 
+                                git config --global --add safe.directory $PROJECT_DIR &&
+                                if [ -n \"\$(git status --porcelain)\" ]; then
+                                    echo "⚠️ Local changes detected – committing them..." &&
+                                    git add . &&
+                                    git commit -m \"Auto-commit before pull (via Jenkins)\" &&
+                                    git push origin main
+                                else
+                                    echo "✅ No local changes – continue"
+                                fi
+                            '
                         """
                     }
                 }
@@ -31,11 +53,8 @@ pipeline {
         stage('Pull Latest Changes') {
             steps {
                 script {
-                    // Pull the latest changes from the Git repository
                     sshagent (credentials: ['digitalocean-ssh']) {
-                        sh """
-                            ssh chris@164.92.227.136 'cd /var/www/portfolio && git pull origin main'
-                        """
+                        sh "ssh $REMOTE_USER@$REMOTE_HOST 'cd $PROJECT_DIR && git pull origin main'"
                     }
                 }
             }
@@ -44,11 +63,8 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 script {
-                    // Install the required dependencies
                     sshagent (credentials: ['digitalocean-ssh']) {
-                        sh """
-                            ssh chris@164.92.227.136 'cd /var/www/portfolio && npm install'
-                        """
+                        sh "ssh $REMOTE_USER@$REMOTE_HOST 'cd $PROJECT_DIR && npm install'"
                     }
                 }
             }
@@ -57,11 +73,8 @@ pipeline {
         stage('Build Project') {
             steps {
                 script {
-                    // Run the build command
                     sshagent (credentials: ['digitalocean-ssh']) {
-                        sh """
-                            ssh chris@164.92.227.136 'cd /var/www/portfolio && npm run build'
-                        """
+                        sh "ssh $REMOTE_USER@$REMOTE_HOST 'cd $PROJECT_DIR && npm run build'"
                     }
                 }
             }
@@ -70,11 +83,8 @@ pipeline {
         stage('Restart Application') {
             steps {
                 script {
-                    // Restart the application with PM2
                     sshagent (credentials: ['digitalocean-ssh']) {
-                        sh """
-                            ssh chris@164.92.227.136 'cd /var/www/portfolio && pm2 restart portfolio-app'
-                        """
+                        sh "ssh $REMOTE_USER@$REMOTE_HOST 'cd $PROJECT_DIR && pm2 restart portfolio-app'"
                     }
                 }
             }
