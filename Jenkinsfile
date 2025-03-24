@@ -35,6 +35,7 @@ pipeline {
                             ssh $REMOTE_USER@$REMOTE_HOST '
                                 cd $PROJECT_DIR &&
                                 git config --global --add safe.directory $PROJECT_DIR &&
+                                git config --global pull.rebase true &&
                                 if [ -n "\$(git status --porcelain)" ]; then
                                     echo "⚠️ Local changes detected – committing them..." &&
                                     git add . &&
@@ -55,7 +56,13 @@ pipeline {
             steps {
                 script {
                     sshagent (credentials: ['digitalocean-ssh']) {
-                        sh "ssh $REMOTE_USER@$REMOTE_HOST 'cd $PROJECT_DIR && git pull origin main'"
+                        sh """
+                            ssh $REMOTE_USER@$REMOTE_HOST '
+                                cd $PROJECT_DIR &&
+                                git config --global pull.rebase true &&
+                                git pull origin main
+                            '
+                        """
                     }
                 }
             }
