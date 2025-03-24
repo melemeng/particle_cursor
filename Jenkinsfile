@@ -33,12 +33,13 @@ pipeline {
                     sshagent (credentials: ['digitalocean-ssh']) {
                         sh """
                             ssh $REMOTE_USER@$REMOTE_HOST '
-                                cd $PROJECT_DIR && 
+                                cd $PROJECT_DIR &&
                                 git config --global --add safe.directory $PROJECT_DIR &&
-                                if [ -n \"\$(git status --porcelain)\" ]; then
+                                if [ -n "\$(git status --porcelain)" ]; then
                                     echo "⚠️ Local changes detected – committing them..." &&
                                     git add . &&
-                                    git commit -m \"Auto-commit before pull (via Jenkins)\" &&
+                                    git commit -m "Auto-commit before pull (via Jenkins)" &&
+                                    git pull --rebase origin main &&
                                     git push origin main
                                 else
                                     echo "✅ No local changes – continue"
